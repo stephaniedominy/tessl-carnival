@@ -1,4 +1,5 @@
 import { canvasFont, theme } from '../carnival';
+import { bulbLevel, type Bulb, type LightString } from './lighting';
 import { palette } from './palette';
 import {
   CART_KINDS,
@@ -1754,6 +1755,108 @@ export function drawFloaters(ctx: Ctx, floaters: readonly Floater[]) {
     oval(ctx, f.x + sway - 1.8, f.y - 2.5, 1.4, 2, 'rgba(255,255,255,0.6)');
   }
   ctx.globalAlpha = 1;
+}
+
+// ── Strings of lights ─────────────────────────────────────────────────────
+
+/**
+ * A string of bulbs on its posts, in among the scenery so it hides behind
+ * what stands in front of it. Bulbs are unlit glass until `lights` rises.
+ */
+export function drawLightString(
+  ctx: Ctx,
+  string: LightString,
+  lights: number,
+  t: number,
+  calm: boolean,
+) {
+  for (const post of string.posts) {
+    stroke(
+      ctx,
+      [
+        [post.sx, post.sy],
+        [post.sx, post.sy - post.height],
+      ],
+      palette.woodDark,
+      1.2,
+    );
+  }
+  ctx.strokeStyle = palette.wire;
+  ctx.lineWidth = 0.5;
+  ctx.beginPath();
+  string.wire.forEach((w, i) => (i === 0 ? ctx.moveTo(w.sx, w.sy) : ctx.lineTo(w.sx, w.sy)));
+  ctx.stroke();
+
+  ctx.fillStyle = palette.bulbOff;
+  ctx.beginPath();
+  for (const b of string.bulbs) {
+    ctx.moveTo(b.sx + 1.1, b.sy + 1);
+    ctx.arc(b.sx, b.sy + 1, 1.1, 0, Math.PI * 2);
+  }
+  ctx.fill();
+  if (lights <= 0) return;
+  // Keep the caller's alpha, so a string fades with the plot it belongs to.
+  const base = ctx.globalAlpha;
+  for (const b of string.bulbs) {
+    const level = bulbLevel(lights, b, t, calm);
+    if (level <= 0) continue;
+    ctx.globalAlpha = base * level;
+    oval(ctx, b.sx, b.sy + 1, 1.1, 1.1, b.color);
+  }
+  ctx.globalAlpha = base;
+}
+
+const covered = (b: Bulb, { box, depth }: { box: Box; depth: number }) =>
+  b.x + b.y < depth && b.sx > box.left && b.sx < box.right && b.sy > box.top && b.sy < box.bottom;
+
+/**
+ * The glow round each lit bulb, drawn over the night shade so it shines.
+ * Bulbs hidden behind scenery, and those behind any of `covers` (the
+ * people walking about), stay dark.
+ */
+export function drawBulbGlow(
+  ctx: Ctx,
+  strings: readonly LightString[],
+  lights: number,
+  t: number,
+  calm: boolean,
+  view: Box,
+  covers: readonly { box: Box; depth: number }[],
+) {
+  if (lights <= 0) return;
+  ctx.globalCompositeOperation = 'lighter';
+  for (const string of strings) {
+    const { box } = string;
+    if (box.right < view.left || box.left > view.right) continue;
+    if (box.bottom < view.top || box.top > view.bottom) continue;
+    for (const b of string.bulbs) {
+      if (b.hidden || covers.some((c) => covered(b, c))) continue;
+      const level = bulbLevel(lights, b, t, calm);
+      if (level <= 0) continue;
+      ctx.globalAlpha = level * 0.35;
+      oval(ctx, b.sx, b.sy + 1, 3.4, 3.4, b.color);
+      ctx.globalAlpha = level * 0.9;
+      oval(ctx, b.sx, b.sy + 1, 1.2, 1.2, b.color);
+    }
+  }
+  ctx.globalAlpha = 1;
+  ctx.globalCompositeOperation = 'source-over';
+}
+
+/** A soft pool of warm light on the ground, so paths and signs stay readable at night. */
+export function drawLightPool(ctx: Ctx, x: number, y: number, radius: number, strength: number) {
+  if (strength <= 0) return;
+  const glow = ctx.createRadialGradient(x, y, 0, x, y, radius);
+  glow.addColorStop(0, palette.lampGlow);
+  glow.addColorStop(1, palette.lampFade);
+  ctx.globalCompositeOperation = 'lighter';
+  ctx.globalAlpha = strength;
+  ctx.fillStyle = glow;
+  ctx.beginPath();
+  ctx.ellipse(x, y, radius, radius * 0.6, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.globalAlpha = 1;
+  ctx.globalCompositeOperation = 'source-over';
 }
 
 // ── Everything else ───────────────────────────────────────────────────────

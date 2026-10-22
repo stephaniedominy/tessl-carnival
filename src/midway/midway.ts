@@ -1,3 +1,14 @@
+import {
+  allStrings,
+  hideBehind,
+  layoutLights,
+  lightingAt,
+  parseMidwayTime,
+  shadeAt,
+  skyAt,
+  type LightString,
+  type PlotLights,
+} from './lighting';
 import { palette } from './palette';
 import {
   archBounds,
@@ -5,12 +16,15 @@ import {
   boothBounds,
   drawArch,
   drawBooth,
+  drawBulbGlow,
   drawBunting,
   drawCloud,
   drawFloaters,
   drawFrontHedge,
   drawField,
   drawGroundLayer,
+  drawLightPool,
+  drawLightString,
   drawProp,
   drawWalker,
   groundBounds,
@@ -83,20 +97,38 @@ export function startMidway(canvas: HTMLCanvasElement, options: MidwayOptions): 
   const names = new Map(options.games.map((g) => [g.id, g.name]));
   const player = createWalker(returnTo ?? map.spawn);
   // Booths and scenery never move, so work out where each one sits once.
-  const scenery: { depth: number; box: Box; booth?: BoothSlot; prop?: Prop; name: string }[] = [
-    ...map.booths.map((booth) => ({
+  // The same goes for every string of lights, and which bulbs scenery hides.
+  const lights = layoutLights(map);
+  const strings = allStrings(lights);
+  const scenery: {
+    depth: number;
+    box: Box;
+    booth?: BoothSlot;
+    prop?: Prop;
+    name: string;
+    lights?: PlotLights;
+  }[] = [
+    ...map.booths.map((booth, n) => ({
       depth: booth.x + booth.y + 2,
       box: boothBounds(booth),
       booth,
       name: booth.gameId ? (names.get(booth.gameId) ?? booth.gameId) : 'Coming soon',
+      lights: lights.booths[n],
     })),
     ...map.props.map((prop) => ({
       depth: prop.x + prop.y + (prop.w + prop.h) / 2,
       box: propBounds(prop),
       prop,
       name: '',
+      lights: lights.tents.get(prop),
     })),
   ];
+  hideBehind(
+    strings,
+    scenery.filter((item) => item.prop?.kind !== 'bunting-pole'),
+  );
+  // ?midwayTime=19:30 previews a time of day; otherwise the device's own clock.
+  const previewTime = parseMidwayTime(window.location.search);
   const strolls = strollTiles(map);
   const visitors = createVisitors(map, 9, Math.random);
   const clouds: Cloud[] = Array.from({ length: 9 }, (_, i) => ({
@@ -261,17 +293,23 @@ export function startMidway(canvas: HTMLCanvasElement, options: MidwayOptions): 
   };
 
   const draw = (t: number) => {
+    // Read the clock every frame, so the sky catches up after a background tab.
+    const lighting = lightingAt(previewTime ?? new Date());
+    const lit = lighting.lights;
+
     // The sky, and clouds drifting slowly behind the midway.
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     const horizon = (HORIZON - camera.y) * zoom;
     const sky = ctx.createLinearGradient(0, horizon - 260 * zoom, 0, horizon);
-    sky.addColorStop(0, palette.skyHigh);
-    sky.addColorStop(1, palette.sky);
+    const skyColors = skyAt(lighting);
+    sky.addColorStop(0, skyColors.high);
+    sky.addColorStop(1, skyColors.low);
     ctx.fillStyle = sky;
     ctx.fillRect(0, 0, canvas.clientWidth, Math.max(0, horizon + 2));
 
     ctx.setTransform(dpr * zoom, 0, 0, dpr * zoom, 0, 0);
     const span = view.w + 200;
+    ctx.globalAlpha = 0.35 + 0.65 * lighting.daylight;
     for (const cloud of clouds) {
       const x =
         ((((cloud.x * span - camera.x * 0.3 + (calm ? 0 : t * cloud.speed)) % span) + span) %
@@ -280,12 +318,19 @@ export function startMidway(canvas: HTMLCanvasElement, options: MidwayOptions): 
       const y = HORIZON - camera.y - 50 - cloud.y * 100;
       drawCloud(ctx, x, y, cloud.size);
     }
+    ctx.globalAlpha = 1;
 
     // Snap the camera to whole device pixels so the pre-drawn ground stays crisp.
     const k = dpr * zoom;
     const cam = { x: Math.round(camera.x * k) / k, y: Math.round(camera.y * k) / k };
     const visible: Box = { left: cam.x, top: cam.y, right: cam.x + view.w, bottom: cam.y + view.h };
     ctx.setTransform(k, 0, 0, k, -cam.x * k, -cam.y * k);
+    // Only draw (and so only animate) what's on screen.
+    const onScreen = (box: Box) =>
+      box.right > visible.left &&
+      box.left < visible.right &&
+      box.bottom > visible.top &&
+      box.top < visible.bottom;
     drawField(ctx, visible);
     if (ground) {
       const bounds = groundBounds(map);
@@ -309,6 +354,12 @@ export function startMidway(canvas: HTMLCanvasElement, options: MidwayOptions): 
         );
       }
     }
+
+    const strung = (list: readonly LightString[]) => {
+      for (const string of list)
+        if (onScreen(string.box)) drawLightString(ctx, string, lit, t, calm);
+    };
+    strung(lights.perimeterBack);
 
     if (destination && player.path.length > 0) {
       const p = toScreen(Math.floor(destination.x) + 0.5, Math.floor(destination.y) + 0.5);
@@ -336,12 +387,6 @@ export function startMidway(canvas: HTMLCanvasElement, options: MidwayOptions): 
       ctx.globalAlpha = 1;
     };
 
-    // Only draw (and so only animate) what's on screen.
-    const onScreen = (box: Box) =>
-      box.right > visible.left &&
-      box.left < visible.right &&
-      box.bottom > visible.top &&
-      box.top < visible.bottom;
     const walkerBox = (w: Point): Box => {
       const p = toScreen(w.x, w.y);
       return { left: p.x - 10, right: p.x + 10, top: p.y - 40, bottom: p.y + 4 };
@@ -363,10 +408,18 @@ export function startMidway(canvas: HTMLCanvasElement, options: MidwayOptions): 
     let behindSolidTent = false;
     for (const item of scenery) {
       if (!onScreen(item.box)) continue;
-      const { depth, box, booth, prop, name } = item;
-      const paint = booth
+      const { depth, box, booth, prop, name, lights: plot } = item;
+      const structure = booth
         ? () => drawBooth(ctx, booth, name, t, booth === inReach)
         : () => drawProp(ctx, prop!, t);
+      // A plot's far strings go behind its structure, the near ones in front.
+      const paint = plot
+        ? () => {
+            strung(plot.back);
+            structure();
+            strung(plot.front);
+          }
+        : structure;
       drawables.push({
         depth,
         box,
@@ -384,9 +437,32 @@ export function startMidway(canvas: HTMLCanvasElement, options: MidwayOptions): 
       .forEach((d) => d.draw());
 
     drawFrontHedge(ctx, map);
+    strung(lights.perimeterFront);
     if (onScreen(archBounds(map))) faded(archBounds(map), Infinity, () => drawArch(ctx, map, t));
     drawBunting(ctx, map, t, visible);
     drawFloaters(ctx, floaters);
+
+    // Dusk and night: one shade over the whole scene, then pools of lamplight
+    // on the booth signs and round the player, and the bulbs' glow on top.
+    const shade = shadeAt(lighting);
+    if (shade.alpha > 0) {
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      ctx.globalAlpha = shade.alpha;
+      ctx.fillStyle = shade.color;
+      ctx.fillRect(0, 0, canvas.clientWidth, canvas.clientHeight);
+      ctx.globalAlpha = 1;
+      ctx.setTransform(k, 0, 0, k, -cam.x * k, -cam.y * k);
+    }
+    if (lit > 0) {
+      for (const booth of map.booths) {
+        if (!onScreen(boothBounds(booth))) continue;
+        const c = toScreen(booth.x + 1, booth.y + 1);
+        drawLightPool(ctx, c.x, c.y - BOOTH_SIGN_HEIGHT + 8, 46, lit * 0.45);
+      }
+      drawLightPool(ctx, feet.x, feet.y - 6, 34, lit * 0.4);
+      const people = [...visitors, player].map((w) => ({ box: walkerBox(w), depth: w.x + w.y }));
+      drawBulbGlow(ctx, strings, lit, t, calm, visible, people);
+    }
 
     // Locate the player without turning the tent's walls and roof transparent.
     if (behindSolidTent) {
