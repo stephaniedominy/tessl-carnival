@@ -213,6 +213,21 @@ export function layoutMidway(gameIds: readonly string[]): MidwayMap {
   add('planter', 15, entrance);
   add('planter', 1, height - 2);
 
+  // Small clearings along the perimeter, with the back of each bench to the hedge.
+  // Variants rotate the bench clockwise: south, west, north, east.
+  const perimeterBench = (x: number, y: number, facing: number) => {
+    if (blocked[y * width + x] || ground[y * width + x] !== 'grass') return;
+    add('bench', x, y, 1, 1, facing);
+  };
+  for (let x = 2; x < width - 2; x += 4) {
+    perimeterBench(x, 1, 0);
+    perimeterBench(x, height - 2, 2);
+  }
+  for (let y = 5; y < height - 2; y += 4) {
+    perimeterBench(1, y, 3);
+    perimeterBench(width - 2, y, 1);
+  }
+
   return {
     width,
     height,

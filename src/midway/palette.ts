@@ -13,6 +13,9 @@ export const palette = {
   cloud: '#f9f2df',
   cloudShade: '#dce7dd',
   haze: '#c6d1ae',
+  mountainFar: '#a6bec0',
+  mountainMiddle: '#91adaa',
+  mountainNear: '#809d96',
 
   grass: '#b1be91',
   grassDark: '#96a87f',
@@ -26,6 +29,9 @@ export const palette = {
   hedge: '#819b76',
   hedgeDark: '#668368',
   hedgeLight: '#a1b68a',
+  shrub: '#7b9874',
+  shrubShade: '#607f65',
+  shrubLight: '#a7b98a',
   shadow: 'rgba(65, 78, 61, 0.16)',
 
   red: colors.stripeA,

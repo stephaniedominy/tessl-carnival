@@ -383,7 +383,7 @@ export function startMidway(canvas: HTMLCanvasElement, options: MidwayOptions): 
       .sort((a, b) => a.depth - b.depth)
       .forEach((d) => d.draw());
 
-    drawFrontHedge(ctx, map);
+    drawFrontHedge(ctx, map, visible);
     if (onScreen(archBounds(map))) faded(archBounds(map), Infinity, () => drawArch(ctx, map, t));
     drawBunting(ctx, map, t, visible);
     drawFloaters(ctx, floaters);
