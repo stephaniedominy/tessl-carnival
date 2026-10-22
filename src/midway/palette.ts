@@ -54,4 +54,21 @@ export const palette = {
   pants: ['#2d3a6b', '#3b2a4f', '#5a4a3a'],
   bunting: [colors.stripeA, colors.accent, '#2b8ccc', colors.stripeB],
   balloons: [colors.stripeA, colors.accent, '#2b8ccc', colors.water, '#f59ac0'],
+
+  // Dusk and night. The scene is darkened by a shade laid over everything,
+  // the sky included, so these sky colours are a little brighter than they look.
+  duskHigh: '#5b4aa6',
+  duskLow: '#ff9a5c',
+  nightHigh: '#091331',
+  nightLow: '#43348c',
+  duskShade: '#4a1f52',
+  nightShade: '#0b0a2a',
+
+  // The carnival's strings of lights. Bulbs show as unlit glass by day.
+  wire: '#3a2a2a',
+  bulbOff: '#e8e0cc',
+  bulbs: [colors.accent, colors.stripeB, colors.stripeA, colors.water],
+  perimeterBulbs: [colors.accent, '#ffb347', colors.stripeB],
+  lampGlow: 'rgba(255, 196, 120, 0.55)',
+  lampFade: 'rgba(255, 196, 120, 0)',
 } as const;
