@@ -253,10 +253,49 @@ export function groundBounds(map: MidwayMap): Box {
   };
 }
 
-/** The open field round the midway, filling the view from the horizon down. */
+/** A rounded mountain silhouette. World anchoring keeps the range stable as you walk. */
+function mountainRange(
+  ctx: Ctx,
+  view: Box,
+  span: number,
+  offset: number,
+  height: number,
+  color: string,
+) {
+  const start = Math.floor((view.left - offset) / span) * span + offset - span;
+  const end = Math.ceil((view.right - offset) / span) * span + offset + span;
+  const base = HORIZON + 18;
+  ctx.fillStyle = color;
+  ctx.beginPath();
+  ctx.moveTo(start, base);
+  for (let x = start; x < end; x += span) {
+    const seed = Math.round((x - offset) / span);
+    const peak = x + span * (0.35 + hash(seed, offset, 1) * 0.3);
+    const top = base - height * (0.65 + hash(seed, offset, 2) * 0.35);
+    ctx.bezierCurveTo(x + span * 0.15, base - height * 0.12, peak - span * 0.12, top, peak, top);
+    ctx.bezierCurveTo(
+      peak + span * 0.1,
+      top,
+      x + span * 0.84,
+      base - height * 0.08,
+      x + span,
+      base,
+    );
+  }
+  ctx.lineTo(end, base + 10);
+  ctx.lineTo(start, base + 10);
+  ctx.closePath();
+  ctx.fill();
+}
+
+/** The mountain-backed field round the midway. */
 export function drawField(ctx: Ctx, view: Box) {
   ctx.fillStyle = palette.grass;
   ctx.fillRect(view.left, HORIZON, view.right - view.left, Math.max(0, view.bottom - HORIZON));
+
+  mountainRange(ctx, view, 240, 24, 118, palette.mountainFar);
+  mountainRange(ctx, view, 185, -65, 88, palette.mountainMiddle);
+  mountainRange(ctx, view, 150, 48, 56, palette.mountainNear);
 
   // Soft distant hills, anchored in world space so they don't slide with the camera.
   const start = Math.floor(view.left / 160) * 160 - 160;
@@ -339,9 +378,59 @@ export function drawGroundLayer(map: MidwayMap, wanted: number): GroundLayer {
   for (let i = 0; i < map.width; i += 2) tree(ctx, i + 0.5 + hash(i, 1) * 0.6, -1.4 - hash(i, 2));
   for (let i = 2; i < map.height; i += 2) tree(ctx, -1.4 - hash(1, i), i + 0.5 + hash(2, i) * 0.6);
 
+  for (const plant of perimeterShrubs(map).back) shrub(ctx, plant);
+
   hedge(ctx, { x: 0, y: 0, w: map.width, h: 1 });
   hedge(ctx, { x: 0, y: 0, w: 1, h: map.height });
   return { canvas, scale };
+}
+
+interface Shrub extends Point {
+  size: number;
+  seed: number;
+}
+
+const shrubCache = new WeakMap<MidwayMap, { back: Shrub[]; front: Shrub[] }>();
+
+/** Fixed planting, with breaks behind seats and at the entrance. */
+function perimeterShrubs(map: MidwayMap) {
+  const cached = shrubCache.get(map);
+  if (cached) return cached;
+  const beds: { back: Shrub[]; front: Shrub[] } = { back: [], front: [] };
+  const benches = map.props.filter((prop) => prop.kind === 'bench');
+  const plant = (side: keyof typeof beds, x: number, y: number, seed: number) => {
+    if (benches.some((bench) => Math.hypot(x - bench.x - 0.5, y - bench.y - 0.5) < 1.85)) return;
+    beds[side].push({ x, y, seed, size: 0.8 + hash(seed, 13) * 0.45 });
+  };
+  for (let x = 0.6; x < map.width - 0.4; x += 1.1) {
+    plant('back', x, -0.1, Math.round(x * 10));
+    if (hash(Math.round(x * 10), 15) > 0.3)
+      plant('back', x + 0.35, -1.1, Math.round(x * 10) + 1200);
+    if (x < map.avenueX - 0.6 || x > map.avenueX + 2.6)
+      plant('front', x, map.height - 0.45, Math.round(x * 10) + 300);
+  }
+  for (let y = 0.7; y < map.height - 0.5; y += 1.1) {
+    plant('back', -0.1, y, Math.round(y * 10) + 600);
+    if (hash(Math.round(y * 10), 16) > 0.3)
+      plant('back', -1.1, y + 0.35, Math.round(y * 10) + 1500);
+    plant('front', map.width - 0.45, y, Math.round(y * 10) + 900);
+  }
+  shrubCache.set(map, beds);
+  return beds;
+}
+
+function shrub(ctx: Ctx, plant: Shrub) {
+  const [x, y] = at(plant.x, plant.y);
+  const s = plant.size;
+  oval(ctx, x + 2, y, 10 * s, 3 * s, palette.shadow);
+  oval(ctx, x, y - 5 * s, 10 * s, 6 * s, palette.shrubShade);
+  oval(ctx, x - 5 * s, y - 8 * s, 6 * s, 6 * s, palette.shrub);
+  oval(ctx, x + 4 * s, y - 9 * s, 7 * s, 6 * s, palette.shrub);
+  oval(ctx, x - s, y - 12 * s, 5 * s, 4 * s, palette.shrubLight);
+  if (hash(plant.seed, 14) > 0.65) {
+    oval(ctx, x + 3 * s, y - 11 * s, 1, 1, palette.flowerPetal);
+    oval(ctx, x - 4 * s, y - 8 * s, 0.8, 0.8, palette.flowerRose);
+  }
 }
 
 function tree(ctx: Ctx, x: number, y: number) {
@@ -378,11 +467,20 @@ function hedge(ctx: Ctx, area: Rect) {
 }
 
 /** The hedge's front two sides, which can stand in front of anything. */
-export function drawFrontHedge(ctx: Ctx, map: MidwayMap) {
+export function drawFrontHedge(ctx: Ctx, map: MidwayMap, view?: Box) {
   const h = map.height - 1;
   hedge(ctx, { x: map.width - 1, y: 1, w: 1, h: map.height - 1 });
   hedge(ctx, { x: 1, y: h, w: map.avenueX - 1, h: 1 });
   hedge(ctx, { x: map.avenueX + 2, y: h, w: map.width - map.avenueX - 3, h: 1 });
+  for (const plant of perimeterShrubs(map).front) {
+    const p = toScreen(plant.x, plant.y);
+    if (
+      view &&
+      (p.x + 16 < view.left || p.x - 16 > view.right || p.y < view.top || p.y - 20 > view.bottom)
+    )
+      continue;
+    shrub(ctx, plant);
+  }
 }
 
 // ── Round things: tents, the big top, the carousel ────────────────────────
@@ -1060,12 +1158,54 @@ function ticketBooth(ctx: Ctx, prop: Prop) {
 }
 
 function bench(ctx: Ctx, prop: Prop) {
-  const x = prop.x + 0.12;
-  const y = prop.y + 0.4;
-  for (const lx of [x + 0.08, x + 0.68])
-    box(ctx, lx, y + 0.05, 0.05, 0.2, 0, 6, palette.woodDark, palette.woodDark, palette.woodDark);
-  box(ctx, x, y, 0.76, 0.26, 6, 2, palette.woodLight, palette.wood, palette.woodDark);
-  box(ctx, x, y - 0.02, 0.76, 0.06, 8, 7, palette.woodLight, palette.wood, palette.woodDark);
+  // Rotate the footprint in tile space, so the seat and back face the grounds.
+  const piece = (
+    u: number,
+    v: number,
+    w: number,
+    d: number,
+    z: number,
+    h: number,
+    legs = false,
+  ) => {
+    let x = u;
+    let y = v;
+    let width = w;
+    let depth = d;
+    switch (prop.variant % 4) {
+      case 1:
+        x = 1 - v - d;
+        y = u;
+        width = d;
+        depth = w;
+        break;
+      case 2:
+        x = 1 - u - w;
+        y = 1 - v - d;
+        break;
+      case 3:
+        x = v;
+        y = 1 - u - w;
+        width = d;
+        depth = w;
+        break;
+    }
+    box(
+      ctx,
+      prop.x + x,
+      prop.y + y,
+      width,
+      depth,
+      z,
+      h,
+      legs ? palette.woodDark : palette.woodLight,
+      legs ? palette.woodDark : palette.wood,
+      palette.woodDark,
+    );
+  };
+  for (const u of [0.2, 0.8]) piece(u, 0.45, 0.05, 0.2, 0, 6, true);
+  piece(0.12, 0.4, 0.76, 0.26, 6, 2);
+  piece(0.12, 0.38, 0.76, 0.06, 8, 7);
 }
 
 function planter(ctx: Ctx, prop: Prop) {

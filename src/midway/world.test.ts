@@ -83,6 +83,27 @@ describe('layoutMidway', () => {
     }
   });
 
+  it('adds inward-facing perimeter benches on free grass without blocking booth access', () => {
+    for (const count of [1, 9, 20]) {
+      const map = layoutMidway(Array.from({ length: count }, (_, i) => `game-${i}`));
+      const seats = map.props.filter(
+        (prop) =>
+          prop.kind === 'bench' &&
+          (prop.x === 1 || prop.x === map.width - 2 || prop.y === 1 || prop.y === map.height - 2),
+      );
+      expect(seats.length).toBeGreaterThan(4);
+      for (const seat of seats) {
+        expect(map.ground[seat.y * map.width + seat.x]).toBe('grass');
+        expect(isBlocked(map, seat.x, seat.y)).toBe(true);
+        if (seat.x === 1) expect(seat.variant).toBe(3);
+        else if (seat.x === map.width - 2) expect(seat.variant).toBe(1);
+        else if (seat.y === 1) expect(seat.variant).toBe(0);
+        else expect(seat.variant).toBe(2);
+      }
+      for (const booth of map.booths) expect(pathToBooth(map, map.spawn, booth)).toBeDefined();
+    }
+  });
+
   it('is the same on every visit', () => {
     expect(layoutMidway(['a'])).toEqual(layoutMidway(['a']));
   });
