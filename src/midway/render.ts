@@ -255,10 +255,22 @@ export function groundBounds(map: MidwayMap): Box {
 
 /** The open field round the midway, filling the view from the horizon down. */
 export function drawField(ctx: Ctx, view: Box) {
-  ctx.fillStyle = palette.haze;
-  ctx.fillRect(view.left, HORIZON, view.right - view.left, 6);
   ctx.fillStyle = palette.grass;
-  ctx.fillRect(view.left, HORIZON + 6, view.right - view.left, Math.max(0, view.bottom - HORIZON));
+  ctx.fillRect(view.left, HORIZON, view.right - view.left, Math.max(0, view.bottom - HORIZON));
+
+  // Soft distant hills, anchored in world space so they don't slide with the camera.
+  const start = Math.floor(view.left / 160) * 160 - 160;
+  const end = Math.ceil(view.right / 160) * 160 + 160;
+  ctx.fillStyle = palette.haze;
+  ctx.beginPath();
+  ctx.moveTo(start, HORIZON + 12);
+  for (let x = start; x < end; x += 160) {
+    ctx.quadraticCurveTo(x + 80, HORIZON - 24 - hash(x / 160, 0, 11) * 16, x + 160, HORIZON + 12);
+  }
+  ctx.lineTo(end, HORIZON + 20);
+  ctx.lineTo(start, HORIZON + 20);
+  ctx.closePath();
+  ctx.fill();
 }
 
 /**
@@ -309,6 +321,19 @@ export function drawGroundLayer(map: MidwayMap, wanted: number): GroundLayer {
     }
   }
   ctx.stroke();
+
+  // Small meadow flowers, painted into the cached ground rather than each frame.
+  for (let y = 1; y < map.height - 1; y++) {
+    for (let x = 1; x < map.width - 1; x++) {
+      if (map.ground[y * map.width + x] !== 'grass' || hash(x, y, 7) > 0.065) continue;
+      const [px, py] = at(x + hash(x, y, 8), y + hash(x, y, 9));
+      const petals = hash(x, y, 10) > 0.5 ? palette.flowerPetal : palette.flowerRose;
+      oval(ctx, px - 1.4, py, 1.3, 0.8, petals);
+      oval(ctx, px + 1.4, py, 1.3, 0.8, petals);
+      oval(ctx, px, py - 1.2, 1, 1, petals);
+      oval(ctx, px, py, 0.6, 0.6, palette.flowerCentre);
+    }
+  }
 
   // Trees out in the field behind the midway.
   for (let i = 0; i < map.width; i += 2) tree(ctx, i + 0.5 + hash(i, 1) * 0.6, -1.4 - hash(i, 2));
