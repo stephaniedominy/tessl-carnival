@@ -7,65 +7,72 @@
 body {
   margin: 0;
   min-height: 100vh;
-  background: var(--color-background);
-  color: var(--color-text);
+  background: var(--color-paper);
+  color: var(--color-paperInk);
   font-family: var(--font-family);
+  -webkit-font-smoothing: antialiased;
 }
 
 a {
-  color: var(--color-accent);
+  color: var(--color-forest);
+  text-underline-offset: 4px;
+}
+
+a:focus-visible {
+  outline: 3px solid var(--color-forest);
+  outline-offset: 5px;
 }
 
 .awning {
-  padding: 20px 16px 28px;
+  position: relative;
+  z-index: 1;
+  padding: 14px 24px 20px;
   text-align: center;
+  background: var(--color-paper);
+  box-shadow: 0 4px 20px color-mix(in srgb, var(--color-background) 9%, transparent);
+}
+
+.awning::after {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  height: 7px;
   background: repeating-linear-gradient(
     90deg,
-    var(--color-stripeA) 0 48px,
-    var(--color-stripeB) 48px 96px
+    var(--color-stripeA) 0 32px,
+    var(--color-paper) 32px 64px
   );
-  clip-path: polygon(
-    0 0,
-    100% 0,
-    100% 80%,
-    95% 100%,
-    90% 80%,
-    85% 100%,
-    80% 80%,
-    75% 100%,
-    70% 80%,
-    65% 100%,
-    60% 80%,
-    55% 100%,
-    50% 80%,
-    45% 100%,
-    40% 80%,
-    35% 100%,
-    30% 80%,
-    25% 100%,
-    20% 80%,
-    15% 100%,
-    10% 80%,
-    5% 100%,
-    0 80%
-  );
+  opacity: 0.55;
+  content: '';
 }
 
 .brand {
   display: inline-block;
-  padding: 6px 18px;
-  border-radius: var(--radius);
-  background: var(--color-background);
-  color: var(--color-accent);
-  font-size: 28px;
-  font-weight: bold;
+  color: var(--color-forest);
+  font-family: var(--font-heading);
+  font-size: 29px;
+  font-weight: normal;
+  letter-spacing: 0.025em;
+  line-height: 1.1;
   text-decoration: none;
+}
+
+.brand-caption {
+  display: block;
+  margin-top: 7px;
+  color: var(--color-paperMuted);
+  font-family: var(--font-family);
+  font-size: 9px;
+  font-weight: normal;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
 }
 
 main {
   max-width: 960px;
   margin: 0 auto;
-  padding: 24px 16px 48px;
+  padding: 28px 16px 48px;
 }
 
 body[data-view='midway'] {
@@ -102,31 +109,34 @@ body[data-view='midway'] main {
 .booth-card {
   position: absolute;
   margin: 0;
-  border: 2px solid var(--color-accent);
+  border: 1px solid var(--color-paperEdge);
   border-radius: var(--radius);
-  background: color-mix(in srgb, var(--color-background) 88%, transparent);
+  background: color-mix(in srgb, var(--color-paper) 96%, transparent);
+  color: var(--color-paperInk);
+  box-shadow: 0 6px 24px color-mix(in srgb, var(--color-background) 12%, transparent);
 }
 
 .midway-help {
-  bottom: 16px;
-  left: 16px;
-  max-width: 340px;
-  padding: 10px 14px;
-  color: var(--color-muted);
-  font-size: 14px;
-  line-height: 1.7;
+  bottom: 20px;
+  left: 20px;
+  max-width: 325px;
+  padding: 12px 16px;
+  color: var(--color-paperMuted);
+  font-size: 13px;
+  line-height: 1.8;
 }
 
 .midway-credit {
-  top: 16px;
-  left: 16px;
-  padding: 6px 12px;
-  color: var(--color-muted);
-  font-size: 13px;
+  top: 20px;
+  left: 20px;
+  padding: 8px 14px;
+  border-radius: 24px;
+  color: var(--color-paperMuted);
+  font-size: 11px;
 }
 
 .midway-credit a {
-  color: var(--color-accent);
+  color: var(--color-forest);
   font-weight: bold;
   text-decoration: none;
 }
@@ -137,26 +147,29 @@ body[data-view='midway'] main {
 }
 
 kbd {
-  padding: 1px 6px;
-  border-radius: 4px;
-  background: var(--color-surface);
-  color: var(--color-text);
+  padding: 2px 6px;
+  border: 1px solid var(--color-paperEdge);
+  border-radius: 5px;
+  background: var(--color-paper);
+  color: var(--color-paperInk);
   font-family: inherit;
   font-weight: bold;
 }
 
 .midway-guide {
-  top: 16px;
-  right: 16px;
-  padding: 10px 14px;
-  font-size: 14px;
+  top: 20px;
+  right: 20px;
+  min-width: 220px;
+  padding: 14px 18px;
+  font-size: 13px;
 }
 
 .midway-guide h2 {
-  margin: 0 0 6px;
-  color: var(--color-muted);
-  font-size: 12px;
-  letter-spacing: 0.08em;
+  margin: 0 0 8px;
+  color: var(--color-paperMuted);
+  font-size: 10px;
+  font-weight: normal;
+  letter-spacing: 0.16em;
   text-transform: uppercase;
 }
 
@@ -168,31 +181,31 @@ kbd {
 
 .midway-guide a {
   display: flex;
-  gap: 12px;
+  gap: 16px;
   justify-content: space-between;
-  padding: 3px 0;
-  color: var(--color-text);
-  font-weight: bold;
+  padding: 5px 0;
+  color: var(--color-paperInk);
+  font-weight: normal;
   text-decoration: none;
 }
 
 .midway-guide a:hover .name,
 .midway-guide a:focus-visible .name {
-  color: var(--color-accent);
+  text-decoration: underline;
 }
 
 .midway-guide .best {
-  color: var(--color-muted);
+  color: var(--color-paperMuted);
+  font-size: 12px;
   font-weight: normal;
 }
 
 .booth-card {
-  bottom: 16px;
+  bottom: 20px;
   left: 50%;
   width: min(360px, calc(100% - 32px));
-  padding: 16px 20px;
+  padding: 22px 24px;
   transform: translateX(-50%);
-  box-shadow: 0 0 0 4px color-mix(in srgb, var(--color-accent) 25%, transparent);
 }
 
 .booth-card[hidden] {
@@ -200,21 +213,25 @@ kbd {
 }
 
 .booth-card.closed {
-  border-color: var(--color-muted);
-  box-shadow: none;
+  border-style: dashed;
 }
 
 .booth-card h2 {
-  margin: 0 0 6px;
+  margin: 0 0 10px;
+  font-family: var(--font-heading);
+  font-size: 26px;
+  font-weight: normal;
 }
 
 .booth-card .description {
-  margin: 0 0 10px;
-  color: var(--color-muted);
+  margin: 0 0 14px;
+  color: var(--color-paperMuted);
+  line-height: 1.6;
 }
 
 .booth-card .best {
-  margin: 0 0 12px;
+  margin: 0 0 16px;
+  font-size: 13px;
   font-weight: bold;
 }
 
@@ -224,12 +241,17 @@ kbd {
 
 .play {
   display: inline-block;
-  padding: 8px 20px;
-  border-radius: var(--radius);
-  background: var(--color-accent);
-  color: var(--color-background);
+  padding: 10px 24px;
+  border-radius: 24px;
+  background: var(--color-forest);
+  color: var(--color-paper);
+  font-size: 14px;
   font-weight: bold;
   text-decoration: none;
+}
+
+.play:hover {
+  background: var(--color-background);
 }
 
 .play[hidden] {
@@ -241,6 +263,18 @@ kbd {
   .midway-credit {
     display: none;
   }
+
+  .midway-guide {
+    top: 12px;
+    right: 12px;
+    min-width: 0;
+    padding: 10px 12px;
+    font-size: 12px;
+  }
+
+  .brand {
+    font-size: 25px;
+  }
 }
 
 .game-header {
@@ -248,18 +282,23 @@ kbd {
   flex-wrap: wrap;
   align-items: baseline;
   gap: 8px 24px;
-  margin-bottom: 16px;
+  margin-bottom: 20px;
 }
 
 .game-header h1 {
   margin: 0;
+  font-family: var(--font-heading);
+  font-size: 32px;
+  font-weight: normal;
 }
 
 .game canvas {
   display: block;
   width: 100%;
   height: auto;
+  border: 1px solid var(--color-paperEdge);
   border-radius: var(--radius);
+  box-shadow: 0 12px 36px color-mix(in srgb, var(--color-background) 12%, transparent);
   cursor: crosshair;
   touch-action: none;
 }
