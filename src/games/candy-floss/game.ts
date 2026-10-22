@@ -98,7 +98,8 @@ export function serve(state: CandyFlossState): boolean {
   if (state.phase !== 'spinning') return false;
   const target = state.orders[state.current];
   const size = Math.round(state.size);
-  const collapsed = size >= MAX_SIZE;
+  // Only reaching the cap collapses; 99.5 rounds to 100 but is still served.
+  const collapsed = state.size >= MAX_SIZE;
   const points = collapsed ? 0 : scoreForOrder(target, size);
   state.results.push({ target, size, points, collapsed });
   state.score += points;
@@ -304,19 +305,27 @@ export const candyFloss: CarnivalGame = {
     canvas.style.touchAction = 'none';
 
     let state = createState();
+    // What started the current spin: Space or a pointer id. Only it can serve.
+    let holder: 'space' | number | undefined;
 
-    const down = () => {
+    const down = (source: 'space' | number) => {
       if (state.phase === 'over') state = restart();
       else press(state);
+      if (state.phase === 'spinning' && holder === undefined) holder = source;
+    };
+    const up = (source: 'space' | number) => {
+      if (source !== holder) return;
+      holder = undefined;
+      release(state);
     };
 
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.code !== 'Space') return;
       event.preventDefault();
-      if (!event.repeat) down();
+      if (!event.repeat) down('space');
     };
     const onKeyUp = (event: KeyboardEvent) => {
-      if (event.code === 'Space') release(state);
+      if (event.code === 'Space') up('space');
     };
     const onPointerDown = (event: PointerEvent) => {
       const rect = canvas.getBoundingClientRect();
@@ -325,9 +334,9 @@ export const candyFloss: CarnivalGame = {
       if (!isOnButton(x, y)) return;
       event.preventDefault();
       canvas.setPointerCapture(event.pointerId);
-      down();
+      down(event.pointerId);
     };
-    const onPointerUp = () => release(state);
+    const onPointerUp = (event: PointerEvent) => up(event.pointerId);
 
     window.addEventListener('keydown', onKeyDown);
     window.addEventListener('keyup', onKeyUp);
@@ -342,8 +351,17 @@ export const candyFloss: CarnivalGame = {
       const dt = Math.min((time - last) / 1000, 0.05);
       last = time;
       step(state, dt);
+      // A collapse serves without a release, so the next spin can have a new holder.
+      if (state.phase !== 'spinning') holder = undefined;
       const finalScore = claimFinalScore(state);
-      if (finalScore !== undefined) recordScore(candyFloss.id, finalScore);
+      if (finalScore !== undefined) {
+        // A failed save (storage full or blocked) must not stop the results screen.
+        try {
+          recordScore(candyFloss.id, finalScore);
+        } catch {
+          // The round still ends; only the saved best score is missed.
+        }
+      }
       draw(ctx, state);
       frame = requestAnimationFrame(loop);
     };

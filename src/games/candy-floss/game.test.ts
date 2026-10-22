@@ -98,6 +98,15 @@ describe('candy floss', () => {
     expect(state.current).toBe(1);
   });
 
+  it('scores a floss just under the cap that rounds to it, without collapsing', () => {
+    const state = roundOf(MAX_TARGET);
+    press(state);
+    state.size = 99.6;
+    expect(release(state)).toBe(true);
+    expect(state.results[0]).toMatchObject({ size: MAX_SIZE, collapsed: false });
+    expect(state.results[0].points).toBe(scoreForOrder(MAX_TARGET, MAX_SIZE));
+  });
+
   it('ignores a second press while spinning and a second release after serving', () => {
     const state = roundOf(50);
     press(state);
