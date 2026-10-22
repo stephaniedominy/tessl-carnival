@@ -17,6 +17,19 @@ export const FEEDBACK_TIME = 1.2;
 const FLOSS = { x: WIDTH / 2, y: 210, maxRadius: 140 } as const;
 export const BUTTON = { x: WIDTH / 2 - 110, y: 420, width: 220, height: 56 } as const;
 
+/** The floss colours to choose from, in selector order, each a theme colour. */
+export const FLOSS_COLOURS = [
+  { id: 'lavender', name: 'Lavender', color: 'muted' },
+  { id: 'rose', name: 'Rose', color: 'danger' },
+  { id: 'blue', name: 'Blue', color: 'water' },
+  { id: 'gold', name: 'Gold', color: 'accent' },
+] as const;
+export type FlossColour = (typeof FLOSS_COLOURS)[number]['id'];
+export const DEFAULT_COLOUR: FlossColour = 'lavender';
+
+const SWATCH = { x: 60, y: 280, width: 110, height: 44, gap: 16 } as const;
+const PREVIEW = { x: 680, y: 300, radius: 50 } as const;
+
 export interface OrderResult {
   target: number;
   size: number;
@@ -36,13 +49,16 @@ export interface CandyFlossState {
   /** Seconds the current feedback has been showing. */
   feedbackAge: number;
   scoreClaimed: boolean;
+  /** The floss colour, chosen on the pre-round screen. */
+  colour: FlossColour;
   phase: 'intro' | 'ready' | 'spinning' | 'served' | 'over';
 }
 
-/** A fresh round. It starts on the controls screen unless `phase` says otherwise. */
+/** A fresh round. It starts on the controls and colour screen unless `phase` says otherwise. */
 export function createState(
   random: () => number = Math.random,
   phase: 'intro' | 'ready' = 'intro',
+  colour: FlossColour = DEFAULT_COLOUR,
 ): CandyFlossState {
   const orders = Array.from(
     { length: ORDERS_PER_ROUND },
@@ -56,13 +72,37 @@ export function createState(
     score: 0,
     feedbackAge: 0,
     scoreClaimed: false,
+    colour,
     phase,
   };
 }
 
-/** A new round that skips the controls screen, for playing again. */
-export function restart(random: () => number = Math.random): CandyFlossState {
-  return createState(random, 'ready');
+/** A new round for playing again: back to the colour screen, keeping the last colour. */
+export function restart(
+  random: () => number = Math.random,
+  colour: FlossColour = DEFAULT_COLOUR,
+): CandyFlossState {
+  return createState(random, 'intro', colour);
+}
+
+/** Picks the floss colour. Only works before the round starts; returns false otherwise. */
+export function chooseColour(state: CandyFlossState, colour: FlossColour): boolean {
+  if (state.phase !== 'intro') return false;
+  state.colour = colour;
+  return true;
+}
+
+/** Moves the colour choice `delta` places along the selector, wrapping round. */
+export function cycleColour(state: CandyFlossState, delta: number): boolean {
+  const count = FLOSS_COLOURS.length;
+  const index = FLOSS_COLOURS.findIndex((option) => option.id === state.colour);
+  return chooseColour(state, FLOSS_COLOURS[(((index + delta) % count) + count) % count].id);
+}
+
+/** The theme colour to draw a floss colour with. */
+export function flossFill(colour: FlossColour): string {
+  const option = FLOSS_COLOURS.find((o) => o.id === colour) ?? FLOSS_COLOURS[0];
+  return theme.colors[option.color];
 }
 
 /** 100 points for an exact match, 2.5 fewer per size unit off, never below 0. */
@@ -148,6 +188,15 @@ export function isOnButton(x: number, y: number): boolean {
   );
 }
 
+/** The colour whose swatch is at canvas point (x, y), if any. */
+export function swatchAt(x: number, y: number): FlossColour | undefined {
+  if (y < SWATCH.y || y > SWATCH.y + SWATCH.height) return undefined;
+  return FLOSS_COLOURS.find((_, i) => {
+    const left = SWATCH.x + i * (SWATCH.width + SWATCH.gap);
+    return x >= left && x <= left + SWATCH.width;
+  })?.id;
+}
+
 function buttonLabel(state: CandyFlossState): string | undefined {
   switch (state.phase) {
     case 'intro':
@@ -165,29 +214,65 @@ function buttonLabel(state: CandyFlossState): string | undefined {
 
 const radiusFor = (size: number) => (size / MAX_SIZE) * FLOSS.maxRadius;
 
-function drawFloss(ctx: CanvasRenderingContext2D, size: number) {
-  const { colors } = theme;
-  ctx.fillStyle = colors.wood;
-  ctx.fillRect(FLOSS.x - 4, FLOSS.y, 8, 170);
-  const radius = radiusFor(size);
+function drawFloss(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  radius: number,
+  colour: FlossColour,
+  stick: number,
+) {
+  ctx.fillStyle = theme.colors.wood;
+  ctx.fillRect(x - 4, y, 8, stick);
   if (radius < 1) return;
   // A cloud of overlapping puffs around the stick.
-  ctx.fillStyle = colors.muted;
+  ctx.fillStyle = flossFill(colour);
   ctx.beginPath();
-  ctx.arc(FLOSS.x, FLOSS.y, radius * 0.8, 0, Math.PI * 2);
+  ctx.arc(x, y, radius * 0.8, 0, Math.PI * 2);
   ctx.fill();
   for (let i = 0; i < 8; i++) {
     const angle = (i / 8) * Math.PI * 2;
     ctx.beginPath();
     ctx.arc(
-      FLOSS.x + Math.cos(angle) * radius * 0.55,
-      FLOSS.y + Math.sin(angle) * radius * 0.55,
+      x + Math.cos(angle) * radius * 0.55,
+      y + Math.sin(angle) * radius * 0.55,
       radius * 0.45,
       0,
       Math.PI * 2,
     );
     ctx.fill();
   }
+}
+
+function drawColourPicker(ctx: CanvasRenderingContext2D, state: CandyFlossState) {
+  const { colors } = theme;
+  ctx.textAlign = 'left';
+  ctx.fillStyle = colors.text;
+  ctx.font = canvasFont('body', 'bold');
+  ctx.fillText('Floss colour (keys 1-4 or arrow keys, or tap a swatch)', SWATCH.x, SWATCH.y - 16);
+  FLOSS_COLOURS.forEach((option, i) => {
+    const x = SWATCH.x + i * (SWATCH.width + SWATCH.gap);
+    const selected = option.id === state.colour;
+    ctx.fillStyle = theme.colors[option.color];
+    ctx.beginPath();
+    ctx.roundRect(x, SWATCH.y, SWATCH.width, SWATCH.height, theme.radius);
+    ctx.fill();
+    if (selected) {
+      ctx.strokeStyle = colors.text;
+      ctx.lineWidth = 4;
+      ctx.stroke();
+    }
+    ctx.textAlign = 'center';
+    ctx.fillStyle = selected ? colors.text : colors.muted;
+    ctx.font = canvasFont('small', selected ? 'bold' : 'normal');
+    ctx.fillText(`${i + 1} ${option.name}`, x + SWATCH.width / 2, SWATCH.y + SWATCH.height + 22);
+  });
+  drawFloss(ctx, PREVIEW.x, PREVIEW.y, PREVIEW.radius, state.colour, 70);
+  const selected = FLOSS_COLOURS.find((option) => option.id === state.colour);
+  ctx.textAlign = 'center';
+  ctx.fillStyle = colors.text;
+  ctx.font = canvasFont('small', 'bold');
+  ctx.fillText(`Selected: ${selected?.name}`, PREVIEW.x, PREVIEW.y + 92);
 }
 
 function draw(ctx: CanvasRenderingContext2D, state: CandyFlossState) {
@@ -207,7 +292,7 @@ function draw(ctx: CanvasRenderingContext2D, state: CandyFlossState) {
     ctx.textAlign = 'center';
     ctx.fillStyle = colors.accent;
     ctx.font = canvasFont('title', 'bold');
-    ctx.fillText('Candy Floss', WIDTH / 2, 120);
+    ctx.fillText('Candy Floss', WIDTH / 2, 90);
     ctx.fillStyle = colors.text;
     ctx.font = canvasFont('body');
     const lines = [
@@ -216,7 +301,8 @@ function draw(ctx: CanvasRenderingContext2D, state: CandyFlossState) {
       'Let go to serve it. The closer to the target, the more points.',
       'Hold too long and it collapses for 0 points.',
     ];
-    lines.forEach((line, i) => ctx.fillText(line, WIDTH / 2, 190 + i * 36));
+    lines.forEach((line, i) => ctx.fillText(line, WIDTH / 2, 132 + i * 28));
+    drawColourPicker(ctx, state);
   } else if (state.phase === 'over') {
     ctx.textAlign = 'center';
     ctx.fillStyle = colors.accent;
@@ -235,7 +321,7 @@ function draw(ctx: CanvasRenderingContext2D, state: CandyFlossState) {
     ctx.fillText('Press Space or the button to play again', WIDTH / 2, 380);
   } else {
     // Target outline and the floss being spun.
-    drawFloss(ctx, state.size);
+    drawFloss(ctx, FLOSS.x, FLOSS.y, radiusFor(state.size), state.colour, 170);
     ctx.strokeStyle = colors.accent;
     ctx.lineWidth = 3;
     ctx.setLineDash([10, 8]);
@@ -249,7 +335,7 @@ function draw(ctx: CanvasRenderingContext2D, state: CandyFlossState) {
     ctx.fillStyle = colors.surface;
     ctx.fillRect(meter.x, meter.y, meter.width, meter.height);
     const filled = (state.size / MAX_SIZE) * meter.height;
-    ctx.fillStyle = colors.muted;
+    ctx.fillStyle = flossFill(state.colour);
     ctx.fillRect(meter.x, meter.y + meter.height - filled, meter.width, filled);
     const targetY =
       meter.y + meter.height - (state.orders[state.current] / MAX_SIZE) * meter.height;
@@ -262,7 +348,7 @@ function draw(ctx: CanvasRenderingContext2D, state: CandyFlossState) {
     ctx.fillText(`Order ${state.current + 1} of ${ORDERS_PER_ROUND}`, 24, 76);
     ctx.fillStyle = colors.accent;
     ctx.fillText(`Target ${state.orders[state.current]}`, 24, 106);
-    ctx.fillStyle = colors.muted;
+    ctx.fillStyle = flossFill(state.colour);
     ctx.fillText(`Size ${Math.round(state.size)}`, 24, 136);
     ctx.fillStyle = colors.text;
     ctx.fillText(`Score ${state.score}`, 24, 166);
@@ -309,7 +395,7 @@ export const candyFloss: CarnivalGame = {
     let holder: 'space' | number | undefined;
 
     const down = (source: 'space' | number) => {
-      if (state.phase === 'over') state = restart();
+      if (state.phase === 'over') state = restart(Math.random, state.colour);
       else press(state);
       if (state.phase === 'spinning' && holder === undefined) holder = source;
     };
@@ -320,6 +406,12 @@ export const candyFloss: CarnivalGame = {
     };
 
     const onKeyDown = (event: KeyboardEvent) => {
+      const digit = /^(?:Digit|Numpad)([1-4])$/.exec(event.code);
+      if (digit) chooseColour(state, FLOSS_COLOURS[Number(digit[1]) - 1].id);
+      else if (event.code === 'ArrowLeft' || event.code === 'ArrowRight') {
+        if (state.phase === 'intro') event.preventDefault();
+        cycleColour(state, event.code === 'ArrowLeft' ? -1 : 1);
+      }
       if (event.code !== 'Space') return;
       event.preventDefault();
       if (!event.repeat) down('space');
@@ -331,6 +423,12 @@ export const candyFloss: CarnivalGame = {
       const rect = canvas.getBoundingClientRect();
       const x = ((event.clientX - rect.left) / rect.width) * WIDTH;
       const y = ((event.clientY - rect.top) / rect.height) * HEIGHT;
+      const swatch = state.phase === 'intro' ? swatchAt(x, y) : undefined;
+      if (swatch) {
+        event.preventDefault();
+        chooseColour(state, swatch);
+        return;
+      }
       if (!isOnButton(x, y)) return;
       event.preventDefault();
       canvas.setPointerCapture(event.pointerId);

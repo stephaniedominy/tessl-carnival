@@ -1,27 +1,34 @@
 import { describe, expect, it } from 'vitest';
 import {
   BUTTON,
+  DEFAULT_COLOUR,
   FEEDBACK_TIME,
+  FLOSS_COLOURS,
   GROW_RATE,
   MAX_SIZE,
   MAX_TARGET,
   MIN_TARGET,
   ORDERS_PER_ROUND,
+  chooseColour,
   claimFinalScore,
   createState,
+  cycleColour,
   feedbackFor,
+  flossFill,
   isOnButton,
   press,
   release,
   restart,
   scoreForOrder,
   step,
+  swatchAt,
   type CandyFlossState,
 } from './game';
+import { theme } from '../../carnival';
 
 /** A round whose every order has the same target, already past the controls screen. */
 function roundOf(target: number): CandyFlossState {
-  const state = restart();
+  const state = createState(Math.random, 'ready');
   state.orders = Array(ORDERS_PER_ROUND).fill(target);
   return state;
 }
@@ -171,14 +178,89 @@ describe('candy floss', () => {
     expect(state.results).toHaveLength(ORDERS_PER_ROUND);
   });
 
-  it('restarts with a fresh round ready to spin', () => {
+  it('restarts with a fresh round on the colour screen', () => {
     const state = restart(() => 0.5);
-    expect(state.phase).toBe('ready');
+    expect(state.phase).toBe('intro');
+    expect(state.colour).toBe(DEFAULT_COLOUR);
     expect(state.current).toBe(0);
     expect(state.score).toBe(0);
     expect(state.results).toEqual([]);
     expect(state.scoreClaimed).toBe(false);
     expect(state.orders).toHaveLength(ORDERS_PER_ROUND);
+  });
+
+  it('starts on Lavender and offers the four theme colours', () => {
+    expect(createState().colour).toBe('lavender');
+    expect(FLOSS_COLOURS.map((option) => option.name)).toEqual([
+      'Lavender',
+      'Rose',
+      'Blue',
+      'Gold',
+    ]);
+    expect(flossFill('lavender')).toBe(theme.colors.muted);
+    expect(flossFill('rose')).toBe(theme.colors.danger);
+    expect(flossFill('blue')).toBe(theme.colors.water);
+    expect(flossFill('gold')).toBe(theme.colors.accent);
+  });
+
+  it('chooses a colour on the pre-round screen and keeps it for the round', () => {
+    const state = createState();
+    expect(chooseColour(state, 'blue')).toBe(true);
+    expect(state.colour).toBe('blue');
+    press(state);
+    expect(state.colour).toBe('blue');
+  });
+
+  it('cycles through the colours with wrapping', () => {
+    const state = createState();
+    expect(cycleColour(state, -1)).toBe(true);
+    expect(state.colour).toBe('gold');
+    cycleColour(state, 1);
+    cycleColour(state, 1);
+    expect(state.colour).toBe('rose');
+  });
+
+  it('refuses colour changes once the round has started', () => {
+    const state = createState(Math.random, 'intro', 'rose');
+    press(state);
+    expect(chooseColour(state, 'gold')).toBe(false);
+    expect(cycleColour(state, 1)).toBe(false);
+    press(state);
+    expect(chooseColour(state, 'gold')).toBe(false);
+    expect(state.colour).toBe('rose');
+  });
+
+  it('scores the same whatever the colour', () => {
+    const totals = FLOSS_COLOURS.map((option) => {
+      const state = createState(() => 0.5, 'intro', option.id);
+      press(state);
+      for (let i = 0; i < ORDERS_PER_ROUND; i++) {
+        spinTo(state, 30);
+        nextOrder(state);
+      }
+      return state.score;
+    });
+    expect(new Set(totals).size).toBe(1);
+  });
+
+  it('plays again on the colour screen with the last colour selected', () => {
+    const state = createState(Math.random, 'intro', 'gold');
+    press(state);
+    for (let i = 0; i < ORDERS_PER_ROUND; i++) {
+      spinTo(state, 40);
+      nextOrder(state);
+    }
+    const next = restart(Math.random, state.colour);
+    expect(next.phase).toBe('intro');
+    expect(next.colour).toBe('gold');
+    expect(chooseColour(next, 'blue')).toBe(true);
+  });
+
+  it('finds the swatch under a point, and nothing between swatches', () => {
+    const hits = [80, 200, 320, 460].map((x) => swatchAt(x, 300));
+    expect(hits).toEqual(['lavender', 'rose', 'blue', 'gold']);
+    expect(swatchAt(175, 300)).toBeUndefined();
+    expect(swatchAt(80, 200)).toBeUndefined();
   });
 
   it('only counts presses on the button', () => {

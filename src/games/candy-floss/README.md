@@ -4,7 +4,12 @@ Spin candy floss onto a stick to match each customer's order.
 
 ## How to play
 
-- The game opens on a controls screen. Press Space, or click or tap **Start**, to begin.
+- The game opens on a controls screen with a floss colour selector: Lavender, Rose, Blue and
+  Gold. Choose one with the keys 1 to 4, the left and right arrow keys, or by clicking or tapping
+  a swatch. The selected swatch is outlined, its name is shown under a preview of the floss, and
+  the floss is drawn in that colour during the round. Lavender is selected at first.
+- Colours can only be changed on this screen, and the colour never changes the score.
+- Press Space, or click or tap **Start**, to begin.
 - Each round has five orders. Each order shows a target size, drawn as a dashed ring around
   the stick and as a line on the size meter on the right.
 - Hold Space, or press and hold the **Hold to spin** button with the mouse or a finger, to grow
@@ -16,7 +21,8 @@ Spin candy floss onto a stick to match each customer's order.
 - Each order is served once. Holding Space doesn't repeat the press, and presses or releases
   while an order is being served are ignored.
 - After the fifth order you see every order's target, size and points, and the round total.
-  Press Space or **Play again** to start a new round.
+  Press Space or **Play again** to go back to the controls and colour screen for a new round,
+  with the colour you last played selected.
 
 ## Scoring
 
@@ -38,6 +44,7 @@ board once, when the round ends.
 
 ## Files
 
-- `game.ts`: the game logic (`createState`, `restart`, `press`, `release`, `serve`, `step`,
-  `scoreForOrder`, `claimFinalScore`) and the `candyFloss` entry the midway registers.
+- `game.ts`: the game logic (`createState`, `restart`, `chooseColour`, `cycleColour`, `press`,
+  `release`, `serve`, `step`, `scoreForOrder`, `claimFinalScore`) and the `candyFloss` entry the
+  midway registers.
 - `game.test.ts`: tests for the game logic.
