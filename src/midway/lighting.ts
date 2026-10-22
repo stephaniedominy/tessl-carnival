@@ -196,7 +196,7 @@ interface StrandOptions {
   height: number;
   sag: number;
   spacing: number;
-  colors: readonly string[];
+  colors: readonly [string, ...string[]];
   random: () => number;
   /** Leave out the bulbs and posts at both ends, when another strand has them. */
   skipEnds?: boolean;
@@ -278,7 +278,11 @@ function chain(...runs: Point[][]): Point[] {
 }
 
 /** Bulbs round the edge of a plot, on short posts at its corners. */
-export function plotLights(plot: Rect, seed: number, colors: readonly string[]): PlotLights {
+export function plotLights(
+  plot: Rect,
+  seed: number,
+  colors: readonly [string, ...string[]],
+): PlotLights {
   const x0 = plot.x + PLOT_INSET;
   const y0 = plot.y + PLOT_INSET;
   const x1 = plot.x + plot.w - PLOT_INSET;

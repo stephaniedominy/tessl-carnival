@@ -1770,13 +1770,15 @@ export function drawLightString(
   }
   ctx.fill();
   if (lights <= 0) return;
+  // Keep the caller's alpha, so a string fades with the plot it belongs to.
+  const base = ctx.globalAlpha;
   for (const b of string.bulbs) {
     const level = bulbLevel(lights, b, t, calm);
     if (level <= 0) continue;
-    ctx.globalAlpha = level;
+    ctx.globalAlpha = base * level;
     oval(ctx, b.sx, b.sy + 1, 1.1, 1.1, b.color);
   }
-  ctx.globalAlpha = 1;
+  ctx.globalAlpha = base;
 }
 
 const covered = (b: Bulb, { box, depth }: { box: Box; depth: number }) =>

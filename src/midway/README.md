@@ -28,7 +28,7 @@ tested in `lighting.test.ts`. Colours live in `palette.ts`.
 
 ## Previewing a time
 
-Add `midwayTime=HH:MM` (24-hour) to the query string to see the midway at that
+Add `midwayTime=H:MM` or `midwayTime=HH:MM` (24-hour) to the query string to see the midway at that
 time, for example <http://localhost:5173/?midwayTime=19:30>. A missing or
 invalid time, such as `24:00` or `7pm`, uses the real clock. The preview holds
 that time still; it doesn't run on from it.
