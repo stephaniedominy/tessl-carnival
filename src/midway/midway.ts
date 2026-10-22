@@ -371,7 +371,7 @@ export function startMidway(canvas: HTMLCanvasElement, options: MidwayOptions): 
       ctx.stroke();
     }
 
-    // Anything drawn in front of the player fades, so they never get lost.
+    // Scenery in front of the player fades, except for solid round tents.
     const feet = toScreen(player.x, player.y);
     const playerDepth = player.x + player.y;
     const hidesPlayer = (box: Box, depth: number) =>
@@ -405,6 +405,7 @@ export function startMidway(canvas: HTMLCanvasElement, options: MidwayOptions): 
         draw: () => drawWalker(ctx, player, PLAYER_LOOK, true, t),
       },
     ];
+    let behindSolidTent = false;
     for (const item of scenery) {
       if (!onScreen(item.box)) continue;
       const { depth, box, booth, prop, name, lights: plot } = item;
@@ -419,7 +420,16 @@ export function startMidway(canvas: HTMLCanvasElement, options: MidwayOptions): 
             strung(plot.front);
           }
         : structure;
-      drawables.push({ depth, box, draw: () => faded(box, depth, paint) });
+      drawables.push({
+        depth,
+        box,
+        draw: () => {
+          if (prop?.kind === 'round-tent') {
+            paint();
+            behindSolidTent ||= hidesPlayer(box, depth);
+          } else faded(box, depth, paint);
+        },
+      });
     }
     drawables
       .filter((d) => onScreen(d.box))
@@ -452,6 +462,12 @@ export function startMidway(canvas: HTMLCanvasElement, options: MidwayOptions): 
       drawLightPool(ctx, feet.x, feet.y - 6, 34, lit * 0.4);
       const people = [...visitors, player].map((w) => ({ box: walkerBox(w), depth: w.x + w.y }));
       drawBulbGlow(ctx, strings, lit, t, calm, visible, people);
+    }
+
+    // Locate the player without turning the tent's walls and roof transparent.
+    if (behindSolidTent) {
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      label(ctx, 'You', (feet.x - cam.x) * zoom, (feet.y - 32 - cam.y) * zoom);
     }
 
     // The prompt over the booth in reach, at full resolution.
