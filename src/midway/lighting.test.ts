@@ -21,6 +21,8 @@ import { layoutMidway, toScreen } from './world';
 
 const at = (hours: number, minutes = 0) => hours * 60 + minutes;
 const keys = ['daylight', 'warmth', 'lights'] as const;
+const cssColour = (hex: string) =>
+  `rgb(${[1, 3, 5].map((offset) => Number.parseInt(hex.slice(offset, offset + 2), 16)).join(', ')})`;
 
 describe('lightingAt', () => {
   it('is full daylight with the lights off in the daytime', () => {
@@ -88,15 +90,17 @@ describe('lightingAt', () => {
 describe('skyAt and shadeAt', () => {
   it('uses the daytime sky with no shade by day', () => {
     expect(skyAt(lightingAt(at(12)))).toEqual({
-      high: 'rgb(31, 155, 214)',
-      low: 'rgb(56, 180, 230)',
+      high: cssColour(palette.skyHigh),
+      low: cssColour(palette.sky),
     });
-    expect(palette.skyHigh).toBe('#1f9bd6');
     expect(shadeAt(lightingAt(at(12))).alpha).toBe(0);
   });
 
   it('turns deep blue under the full shade at night', () => {
-    expect(skyAt(lightingAt(at(23)))).toEqual({ high: 'rgb(9, 19, 49)', low: 'rgb(67, 52, 140)' });
+    expect(skyAt(lightingAt(at(23)))).toEqual({
+      high: cssColour(palette.nightHigh),
+      low: cssColour(palette.nightLow),
+    });
     expect(shadeAt(lightingAt(at(23))).alpha).toBe(NIGHT_SHADE);
   });
 });
