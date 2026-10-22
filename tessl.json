@@ -1,0 +1,12 @@
+{
+  "name": "tessl-carnival-main",
+  "mode": "vendored",
+  "dependencies": {
+    "tessl-labs/factory-setup": {
+      "version": "0.13.0"
+    }
+  },
+  "agents": [
+    "codex"
+  ]
+}
