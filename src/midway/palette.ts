@@ -57,4 +57,18 @@ export const palette = {
   pants: ['#566b72', '#685b70', '#766752'],
   bunting: [colors.stripeA, colors.accent, '#789eac', colors.stripeB],
   balloons: [colors.stripeA, colors.accent, '#789eac', colors.water, '#d8a6ab'],
+
+  // The same gentle palette after dark, consumed by the time-of-day lighting.
+  duskHigh: '#697d8b',
+  duskLow: '#e5b49c',
+  nightHigh: '#243e4a',
+  nightLow: '#607b7d',
+  duskShade: '#69515a',
+  nightShade: '#18353d',
+  wire: '#615b4b',
+  bulbOff: '#e8dfc9',
+  bulbs: [colors.accent, colors.stripeB, colors.stripeA, colors.water],
+  perimeterBulbs: [colors.accent, '#e8bf84', colors.stripeB],
+  lampGlow: 'rgba(255, 205, 142, 0.55)',
+  lampFade: 'rgba(255, 205, 142, 0)',
 } as const;
